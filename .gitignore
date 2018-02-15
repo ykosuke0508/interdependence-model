@@ -2,4 +2,4 @@
 # .DS_Store banished!
 .DS_Store
 *.pyc
-download-datasets/data_home
+download_datasets/data_home
