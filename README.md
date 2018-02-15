@@ -21,8 +21,8 @@ In this study, we proposed ``interdependence model`` for multi-label classificat
 
 ## Licence
 
-[MIT](https://github.com/tcnksm/tool/blob/master/LICENCE)
+[MIT]()
 
 ## Author
 
-[tcnksm](https://github.com/tcnksm)
+[ykosuke0508]()
