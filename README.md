@@ -9,6 +9,19 @@ In this study, we proposed ``interdependence model`` for multi-label classificat
 
 ## Demo
 
+```
+from download_datasets.multilabel_datasets import load_scene
+
+# load scene dataset if you have; otherwise download scene zip, unzip the file, and load the data.
+data = load_scene()
+
+# feature data
+X = data.features()
+
+# label data
+y = data.labels()
+```
+
 ## VS.
 
 ## Requirement

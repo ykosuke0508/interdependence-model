@@ -3,3 +3,4 @@
 .DS_Store
 *.pyc
 download_datasets/data_home
+data_home
