@@ -325,6 +325,7 @@ def load_medical(data_home_dir="./data_home/", return_features_labels=False, del
         return multilabeled_data(dataset_name, features, labels, feature_names, label_names)
 
 def main():
+    # test code
     data = load_medical()
     print(data.label_names)
     print(data.feature_names)

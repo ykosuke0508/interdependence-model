@@ -15,9 +15,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import MinMaxScaler
 from sympy import *
 from collections import Counter
-from imari.model_selection import *
-import problem_transformation_methods as ptm
-
 
 IDD_PRED_METHODS = {"GIBBS", "FPI", "ESwP", "ESwPfLR"}
 
@@ -447,53 +444,3 @@ def macro_accuracy_score(y_true, y_pred):
     score = land / lor
     #print(score)
     return score.mean()
-
-def main():
-    # Read Data
-    dname="enron"
-    path = "../../master_thesis/exp_data/{0}".format(dname)
-    X = np.array(pd.read_csv(path + "/{}_features.csv".format(dname)))
-    y = np.array(pd.read_csv(path + "/{}_labels.csv".format(dname))).astype(np.int64)
-    # Normalize Data X
-    ms = MinMaxScaler()
-    X = ms.fit_transform(X)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size = 0.9, test_size = 0.1, seed = 58)
-
-    pknow = ptm.generate_prior_knowledge(y_test, 10, same=False, seed = None)
-    IDD = InterdependenceModel(LogisticRegression(C = 1), prediction_method = "ESwP")
-    IDD.fit(X_train, y_train)
-    print("Finished Train Step")
-    pred1 = IDD.predict(X_test, prior_knowledge=pknow)
-    print("[ground truth]")
-    print(y_test[0])
-    print("[prediction value]")
-    print(pred1[0])
-    print("[prior knowledge]")
-    print(pknow)
-    IDD.print_time()
-
-    #IDD = InterdependenceModel(LogisticRegression(C = 1), prediction_method = "ES")
-    #IDD.fit(X_train, y_train)
-    #pred1 = IDD.predict(X_test)
-    #print(pred1[-5:])
-    #IDD.print_time()
-
-    #LP = LabelPowersets(LogisticRegression(C = 1))
-    #IDD.fit(X_train, y_train)
-    #LP.fit(X_train, y_train)
-    #pred1 = IDD.predict(X_test)
-    #pred2 = LP.predict(X_test)
-    #LP.print_time()
-    #print(pred.shape)
-    #for (a,b) in zip(y_test, pred):
-    #    print("{} - {}".format(a,b))
-    #print(macro_accuracy_score(y_test, pred1))
-    #print(macro_accuracy_score(y_test, pred2))
-    #IDD.print_time()
-    #print()
-    #print(pred2[-5:])
-    #print()
-    #print(y_test[-5:])
-
-if __name__ == '__main__':
-    main()
