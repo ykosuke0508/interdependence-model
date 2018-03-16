@@ -19,15 +19,12 @@ references
 A Literature Survey on Algorithms for Multi-label Learning : [Mohammad S Sorower]
 """
 
-# 入力がndarray形式かどうかを確認
 def _isndarray(instance):
     return isinstance(instance, np.ndarray)
 
-# 全ての要素が0/1になっているかを確認
 def _is_zero_one(ndarray):
     return np.all(np.logical_or(ndarray == 1, ndarray == 0))
 
-# ndarrayの内部の要素の形式をint型に変更
 def _change2int(ndarray):
     return ndarray.astype(np.int32)
 
@@ -50,13 +47,11 @@ Example-based metric
 """
 # accuracy
 def accuracy(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
-    # cap : andをとった結果
+    # cap : and
     cap = y_true * y_pred
-    # cup : orをとった結果
+    # cup : or
     cup = y_true + y_pred - cap
-    # 各インスタンスごとにandとorをとったラベルの数を数える。
     cap = cap.sum(axis=1)
     cup = cup.sum(axis=1)
     score = cap / cup
@@ -65,41 +60,32 @@ def accuracy(y_true, y_pred):
 
 # precision
 def precision(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
-    # cap : andをとった結果
+    # cap : and
     cap = y_true * y_pred
     cap = cap.sum(axis=1)
     y_pred = y_pred.sum(axis=1)
-
     score = cap / y_pred
-    # TODO: もし、scoreの要素にnanがある場合にはwarningを出す。
-    # nanが出てきたら0とみなして計算する。
     score = np.where(score == score, score, 0)
     score = np.mean(score)
     return score
 
 # recall
 def recall(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
-    # cap : andをとった結果
+    # cap : and
     cap = y_true * y_pred
     cap = cap.sum(axis=1)
     y_true = y_true.sum(axis=1)
-
     score = cap / y_true
-    # TODO: もし、scoreの要素にnanがある場合にはwarningを出す。
-    # nanが出てきたら1とみなして計算する。
     score = np.where(score == score, score, 1)
     score = np.mean(score)
     return score
 
 # F1 measure
 def F1_measure(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
-    # cap : andをとった結果
+    # cap : and
     cap = y_true * y_pred
     cap = cap.sum(axis=1)
     y_true = y_true.sum(axis=1)
@@ -110,7 +96,6 @@ def F1_measure(y_true, y_pred):
 
 # hamming loss
 def hamming_loss(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     score = np.where(y_true != y_pred, 1, 0)
     score = np.mean(score)
@@ -118,7 +103,6 @@ def hamming_loss(y_true, y_pred):
 
 # 0/1 loss
 def zero_one_loss(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     miss = np.where(y_true != y_pred, 1, 0).sum(axis = 1)
     score = np.where(miss > 0, 1, 0)
@@ -127,7 +111,6 @@ def zero_one_loss(y_true, y_pred):
 
 # Exact Match Ratio
 def exact_match_ratio(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     miss = np.where(y_true != y_pred, 1, 0).sum(axis = 1)
     score = np.where(miss == 0, 1, 0)
@@ -140,7 +123,6 @@ Label-based metric
 
 # macro Precision
 def macro_precision(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum(axis=0)
@@ -151,7 +133,6 @@ def macro_precision(y_true, y_pred):
 
 # macro Recall
 def macro_recall(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum(axis=0)
@@ -162,7 +143,6 @@ def macro_recall(y_true, y_pred):
 
 # macro F1 measure
 def macro_F1_measure(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum(axis=0)
@@ -174,7 +154,6 @@ def macro_F1_measure(y_true, y_pred):
 
 # micro Precision
 def micro_precision(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum()
@@ -184,7 +163,6 @@ def micro_precision(y_true, y_pred):
 
 # micro Recall
 def micro_recall(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum()
@@ -194,7 +172,6 @@ def micro_recall(y_true, y_pred):
 
 # micro F1 measrue
 def micro_F1_measure(y_true, y_pred):
-    # y_trueとy_predがいずれも0/1のみをとるndarray形式であることを確認。
     y_true, y_pred = _previous_check(y_true, y_pred)
     prod = y_true * y_pred
     prod = prod.sum()
@@ -202,12 +179,6 @@ def micro_F1_measure(y_true, y_pred):
     y_pred = y_pred.sum()
     score = (2 * prod) / (y_true + y_pred)
     return score
-
-
-
-# TODO: 未実装
-# logloss
-# auc
 
 def get_all_score(y_true, y_pred):
     score_dict = {}
@@ -227,22 +198,3 @@ def get_all_score(y_true, y_pred):
     score_dict["micro_recall"] = micro_recall(y_true, y_pred)
     score_dict["micro_F1_measure"] = micro_F1_measure(y_true, y_pred)
     return score_dict
-
-def main():
-    dname = "scene"
-    blk_num = 0
-    split_path = "pickle_data/{}_10_split.pickle".format(dname)
-    y_path = "/Users/admin/Dropbox/Thesis/Masters_Thesis/experimental_data/{0}/{0}_labels.csv".format(dname)
-    split_list = np.load(split_path)
-    y = pd.read_csv(y_path)
-    y = np.array(y)
-    y = y[split_list[blk_num]]
-    # blkとnp_instの数字が逆になってしまっている。
-    # 修正するのは時間がかかるので、これを間違えないようにする。
-    pred_path = "/Users/admin/Dropbox/Thesis/Masters_Thesis/results_for_final/results_prior_info_setting/{0}/not_same/{0}_BR_c1_blk_{1}_{2}p_inst.pickle".format(dname, 1, blk_num)
-    pred = np.load(pred_path)
-    score_dict = get_all_score(y, pred)
-    print(score_dict)
-
-if __name__ == '__main__':
-    main()

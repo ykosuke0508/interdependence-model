@@ -20,8 +20,6 @@ IDD_PRED_METHODS = {"GIBBS", "FPI", "ESwP", "ESwPfLR"}
 
 class inner_dummy_binary_classifier(object):
     def __init__(self):
-        # 各特徴量やラベルに対する重みは0とする。
-        # バイアスは、大きな値を取ることにする。
         self.coef_ = None
         self.intercept_ = None
         self.output_label = None
@@ -90,7 +88,7 @@ class InterdependenceModel(problem_transformation_methods_template):
         self._wX = None
         self._wS = None
         self._max_n_labels = None
-        # self._constantはdict型で、ラベルが1種類しかない場合を保持する。
+        # (self._constant) is dict type and recode the case that labels are all zero or all one.
         self._constant = {}
 
     def _label_check(self, train_S):
@@ -100,10 +98,7 @@ class InterdependenceModel(problem_transformation_methods_template):
 
     def fit(self, train_X, train_S):
         self._training_time = time.time()
-        # ラベルが一種類しかないようなラベルを調べる。
-        # もし一種類しかないような場合にはひとまず訓練データから削除する。
         self._label_check(train_S)
-        # 0/1の片方の値しか取らないラベルのindexをkeysに保持。
         keys = list(self._constant.keys())
         if len(keys) != 0:
             train_S = np.delete(train_S, keys, 1)
@@ -113,9 +108,7 @@ class InterdependenceModel(problem_transformation_methods_template):
         self._wS = np.zeros([self._n_classes, self._n_classes])
 
         for i in range(self._n_classes):
-            # y_{i}をYとする
             train_Y = train_S[:,i]
-            # Xとy_{-j}を結合する
             if i == 0:
                 new_X = np.c_[train_X,train_S[:,i+1:]]
             elif i == self._n_classes - 1:
@@ -126,22 +119,16 @@ class InterdependenceModel(problem_transformation_methods_template):
 
             clf = copy.deepcopy(self._clf)
             clf.fit(new_X, train_Y)
-            # 特徴量に対する重み
             self._wX[1:,i] = clf.coef_[:,:-self._n_classes+1]
-            # バイアス項
             self._wX[0,i] = clf.intercept_
-            # yに対する重み
             self._wS[:,i] = np.insert(clf.coef_[:,-self._n_classes+1:], i, 0)
         self._max_n_labels = np.max(train_S.sum(axis = 1))
         self._training_time = time.time() - self._training_time
         inner_info = self._clf
         return self._name, inner_info
 
-    # tau: threshold, N: サンプルサイズ
     def predict(self, test_X, prior_knowledge=None, tau = 0.5, N = 10000, conv = 0.00001):
         self._prediction_time = time.time()
-        # prior_knowledgeをそのまま使うと、0/1の片方の値しか取らないラベルがあった場合にshapeが合わずにエラーで落ちる。
-        # そのため、prior_knowledgeでも対応するラベルは一旦捨てる。
         if prior_knowledge is not None:
             org_pr_know = prior_knowledge.copy()
         else:
@@ -158,16 +145,11 @@ class InterdependenceModel(problem_transformation_methods_template):
         def logistic_function(x):
             return 1 / (1 + np.exp(-x))
 
-        # test_Xの0列目に全ての要素が1のベクトルを追加
-        # bias項(bias変数とは別のもの)に対応するため。
         test_X = np.insert(test_X,0,1,axis = 1)
-        # 特徴量に重みをかけて、計算できるところを先に計算している。
         bias = test_X.dot(self._wX)
-        # biasと同じshapeで全ての要素が1の行列を用意する。
-        # 全ての要素が1というのは、ラベル更新時の初期値として全てを1にしていることを表す。
         self.y = np.ones_like(bias)
 
-        # GIBBSサンプリングに基づく予測手法
+        # GIBBS
         if self._prediction_method == "GIBBS":
             if prior_knowledge is None:
                 result = np.zeros([test_X.shape[0], self._n_classes])
@@ -182,14 +164,13 @@ class InterdependenceModel(problem_transformation_methods_template):
                     pred_ = result / (N * 0.99)
                 else:
                     pred_ = np.where((result / (N * 0.99)) > tau, 1, 0)
-            else: # 事前情報がある場合
+            else: # with prior knowledge
                 result = np.zeros([test_X.shape[0], self._n_classes])
                 r = np.random.uniform(0, 1, N * self._n_classes)
                 for i in range(N):
                     for j in range(self._n_classes):
                         p = logistic_function(bias + self.y.dot(self._wS))
                         self.y[:,j] = np.where(p[:,j] > r[i * self._n_classes + j], 1, 0)
-                        # ここで上書き
                         self.y[:,j] = np.where(prior_knowledge[:,j] == prior_knowledge[:,j],
                                                prior_knowledge[:,j],
                                                self.y[:,j])
@@ -199,7 +180,7 @@ class InterdependenceModel(problem_transformation_methods_template):
                     pred_ = result / (N * 0.99)
                 else:
                     pred_ = np.where((result / (N * 0.99)) > tau, 1, 0)
-        # FPIに基づく予測手法
+        # FPI
         elif self._prediction_method == "FPI":
             if prior_knowledge is None:
                 for i in range(N):
@@ -211,7 +192,7 @@ class InterdependenceModel(problem_transformation_methods_template):
                     pred_ = self.y
                 else:
                     pred_ = np.where(self.y > tau, 1, 0)
-            else: # 事前情報ありの場合
+            else: # with prior knowledge
                 for i in range(N):
                     self.y = np.where(prior_knowledge == prior_knowledge, prior_knowledge, self.y)
                     old_y = copy.deepcopy(self.y)
@@ -224,10 +205,8 @@ class InterdependenceModel(problem_transformation_methods_template):
                 else:
                     self.y = np.where(prior_knowledge == prior_knowledge, prior_knowledge, self.y)
                     pred_ = np.where(self.y > tau, 1, 0)
-        # ESに枝刈りを加えた予測手法
+        # ES with Pruning
         elif self._prediction_method == "ESwP":
-            # 準備
-            # TODO: 枝刈りを2段階にして、それぞれを別の関数として定義する。
             inf = float("inf")
 
             def cross_entropy(b, labels):
@@ -263,40 +242,31 @@ class InterdependenceModel(problem_transformation_methods_template):
                     return best_labels, best_L
 
                 updated_now = np.copy(now)
-                # i番目のラベルがすでに確定している場合
                 if now[i] != -1:
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         return best_labels, best_L
                     else:
                         return search_best(b, updated_now, i+1, best_labels, best_L)
 
                 if now[i] == -1:
-                    # まずは、i番目のラベルが0の時
                     updated_now[i] = 0
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         pass
                     else:
                         best_labels, best_L = search_best(b, updated_now, i+1, best_labels, best_L)
 
-                    # 次に、i番目のラベルが1の時
                     updated_now[i] = 1
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         return best_labels, best_L
                     else:
                         return search_best(b, updated_now, i+1, best_labels, best_L)
 
-            # tempは、予測ラベルの確定値を保存するベクトルのテンプレート
-            # tempの要素の-1はラベルが確定していないことを表す。
-            # temp = np.array([-1 for _ in range(self._n_classes)])
             if prior_knowledge is None:
                 temp = np.ones_like(bias) * -1
-            else: # 事前知識がある場合
+            else: # with prior knowledge
                 temp = np.where(prior_knowledge == prior_knowledge, prior_knowledge, -1)
             for (j,b) in enumerate(bias):
                 now = temp[j]
@@ -305,19 +275,11 @@ class InterdependenceModel(problem_transformation_methods_template):
                 pred, _ = search_best(b, now, 0, init, init_L)
                 self.y[j] = pred
             pred_ = self.y.astype(np.int32)
-        # ESに枝刈りを加えた予測手法 (Logistic Regression用)
+        # ES+ (for Logistic Regression)
         elif self._prediction_method == "ESwPfLR":
-            # 準備
-            # TODO: 枝刈りを2段階にして、それぞれを別の関数として定義する。
             inf = float("inf")
 
             def first_pruning(now, b):
-                """
-                [variable]
-                    now: 現在までに確定しているラベルの有無を表したベクトル
-                         0がラベルなし、1がラベルあり、-1が未確定
-                    b: 特徴量と重みの行列積を計算したもの
-                """
                 for (j,(a, w)) in enumerate(zip(b, self._wS.T)):
                     a = a + np.where(now == 1, w, 0).sum()
                     w = np.where(now == 0, 0, w)
@@ -328,15 +290,10 @@ class InterdependenceModel(problem_transformation_methods_template):
                     ming = a + wm.sum()
                     maxf = 1 / (1 + np.exp(-maxg))
                     minf = 1 / (1 + np.exp(-ming))
-                    #print("y_{1} = 0 : {0} <= log(f_{1}) <= {2}".format(-np.log(1 - minf), j, -np.log(1 - maxf)))
-                    #print("y_{1} = 1 : {0} <= log(f_{1}) <= {2}".format(-np.log(maxf), j,-np.log(minf)))
-
                     if -np.log(maxf) > -np.log(1 - maxf):
-                        #print("y_{0} = 0".format(j))
                         now[j] = 0
                         continue
                     if -np.log(1 - minf) > -np.log(minf):
-                        #print("y_{0} = 1".format(j))
                         now[j] = 1
                         continue
                 return now
@@ -374,44 +331,34 @@ class InterdependenceModel(problem_transformation_methods_template):
                     return best_labels, best_L
 
                 updated_now = np.copy(now)
-                # i番目のラベルがすでに確定している場合
                 if now[i] != -1:
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         return best_labels, best_L
                     else:
                         return search_best(b, updated_now, i+1, best_labels, best_L)
 
                 if now[i] == -1:
-                    # まずは、i番目のラベルが0の時
                     updated_now[i] = 0
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         pass
                     else:
                         best_labels, best_L = search_best(b, updated_now, i+1, best_labels, best_L)
 
-                    # 次に、i番目のラベルが1の時
                     updated_now[i] = 1
-                    # 枝刈り
+                    # Pruning
                     if best_L < future_best(b, updated_now):
-                        #print(updated_now)
                         return best_labels, best_L
                     else:
                         return search_best(b, updated_now, i+1, best_labels, best_L)
 
-            # tempは、予測ラベルの確定値を保存するベクトルのテンプレート
-            # tempの要素の-1はラベルが確定していないことを表す。
-            # temp = np.array([-1 for _ in range(self._n_classes)])
             if prior_knowledge is None:
                 temp = np.ones_like(bias) * -1
-            else: # 事前知識がある場合
+            else: # with prior knowledge
                 temp = np.where(prior_knowledge == prior_knowledge, prior_knowledge, -1)
             for (j,b) in enumerate(bias):
                 now = temp[j]
-                # このwhileループの中が第一の枝刈り(Logistic Regression用)
                 while(1):
                     last = np.copy(now)
                     now = first_pruning(now, b)
@@ -424,9 +371,7 @@ class InterdependenceModel(problem_transformation_methods_template):
             pred_ = self.y.astype(np.int32)
 
         if len(self._constant) != 0:
-            # 削除した分を追加する必要がある。
             n_instances = test_X.shape[0]
-            # TODO: もしここのsortedがうまく働いていなければ、精度は著しく低下するはず。
             sorted(self._constant.items(), key=lambda x: x[0])
             for k, v in self._constant.items():
                 add_ = np.array([v for _ in range(n_instances)])
@@ -442,5 +387,4 @@ def macro_accuracy_score(y_true, y_pred):
     land = (np.array(y_true * y_pred)).sum(axis = 1)
     lor = np.where((y_true + y_pred) >= 1, 1, 0).sum(axis = 1)
     score = land / lor
-    #print(score)
     return score.mean()

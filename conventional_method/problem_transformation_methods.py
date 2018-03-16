@@ -86,24 +86,17 @@ class LabelPowersets(problem_transformation_methods_template):
             pred_Y = self._clf.predict(test_X)
         else:
             # Format : prior_knowledge
-            # 欠損値はNone
-            # 取る値は0/1
-            # np.array形式
-            # shapeは(testのインスタンス数, 候補ラベル数)
+            # missing value -> None
             pred_Y = []
             pred_proba = self._clf.predict_proba(test_X)[:]
-            #print(pred_proba)
             master_classes = np.array(self._clf.classes_)
             master_mask = np.zeros(master_classes.shape[0])
             master_mask[:] = True
-            #print(pred_proba.shape)
-            #print(test_X.shape)
             for i in range(test_X.shape[0]):
                 classes_ = copy.deepcopy(master_classes)
                 answer_mask = copy.deepcopy(master_mask)
                 for (j,value) in enumerate(prior_knowledge[i,::-1]):
                     index = self._n_classes - 1 - j
-                    # nanの場合には、無視する
                     if value != value:
                         mask = classes_ - 2 ** index < 0
                         classes_ = np.where(mask, classes_, classes_ - 2 ** index)
@@ -115,9 +108,7 @@ class LabelPowersets(problem_transformation_methods_template):
                         mask = classes_ - 2 ** index < 0
                         answer_mask *= np.where(mask, True, False)
                         classes_ = np.where(mask, classes_, classes_ - 2 ** index)
-                    #print("{} : {}".format(2 ** index, classes_))
                 if np.all(pred_proba[i] * answer_mask == 0):
-                    #raise ValueError("You cannot apply LP method in this case.")
                     pred_Y.append(np.nan)
                 else:
                     pred_Y.append(master_classes[np.argmax(pred_proba[i] * answer_mask)])
@@ -126,7 +117,7 @@ class LabelPowersets(problem_transformation_methods_template):
         for (i,decimal) in enumerate(pred_Y):
             if decimal == decimal:
                 pred_S.append([int(value) for value in bin(decimal.astype(int) + 2 ** self._n_classes)[:2:-1]])
-            else: # nanの場合を別で処理
+            else:
                 buf = master_classes[np.argmax(pred_proba[i])]
                 buf = [int(value) for value in bin(buf + 2 ** self._n_classes)[:2:-1]]
                 buf = np.array(buf)
@@ -145,7 +136,6 @@ class BinaryRelevance(problem_transformation_methods_template):
         self._l_models = []
         self._training_time = None
         self._prediction_time = None
-        # self._constantは、訓練ラベルが1種類しかない場合の対処のためのリスト
         self._constant = {}
 
     def fit(self, train_X, train_S):
@@ -208,7 +198,6 @@ class ClassifierChains(problem_transformation_methods_template):
         self._order = []
         self._constant = {}
 
-    # CCの訓練 x: 属性ベクトルの集合, S: 解答ベクトルの集合, order: chainの順番をlistにしたもの
     def fit(self, train_X, train_S, b_random = False):
         self._training_time = time.time()
         self._n_classes = train_S.shape[1]
@@ -218,13 +207,12 @@ class ClassifierChains(problem_transformation_methods_template):
         n_instances = train_X.shape[0]
         if b_random:
             random.shuffle(self._order)
-        # train_xとtrain_Sの型がdataflame型ならばnumpy型に変更すべき
+
         for i in self._order:
             clf = copy.deepcopy(self._clf)
             try:
                 clf.fit(train_X, train_S[:,i])
                 self._l_models.append(clf)
-                # 一度予測した値を特徴量に追加する。
                 train_X = np.c_[train_X, clf.predict(train_X)]
             except:
                 if len(set(train_S[:,i])) != 1:
@@ -249,15 +237,13 @@ class ClassifierChains(problem_transformation_methods_template):
                 pred_Y = np.array([buf for _ in range(n_instances)])
             else:
                 pred_Y = clf.predict(test_X)[:]
-            # ここで予測されたpred_Yをprior_knowledgeで置き換える。
+
             if prior_knowledge is not None:
                 pred_Y = np.where(prior_knowledge[:,i] == prior_knowledge[:,i], prior_knowledge[:,i], pred_Y)
             l_pred_S.append(list(pred_Y))
-            # この予想でできたpred_yをtest_xの右側に結合するために縦ベクトルに変換。
             pred_Y = np.matrix(pred_Y).T
             test_X = np.c_[test_X, pred_Y]
         pred_S = np.zeros_like(np.array(l_pred_S))
-        # 答えを並び替える。
         for (i, pred) in zip(self._order, l_pred_S):
             pred_S[i] = np.array(pred)
         pred_S = pred_S.T
@@ -433,10 +419,8 @@ class SubsetMapping(problem_transformation_methods_template):
                 pred_Y = clf.predict(test_X)[:]
                 l_pred_S.append(list(pred_Y))
         pred_S = np.array(l_pred_S).T
-        # ラベルの0/1表記を{-1,+1}表記にする
         pred_S = np.where(pred_S == 0, -1, 1)
         pm_one_train_data = np.where(self._train_data == 0, -1, 1)
-        # この後で、pred_Sをself._train_dataへmappingする必要がある。
         if prior_knowledge is not None:
             pred_S = np.where(prior_knowledge == prior_knowledge, prior_knowledge, pred_S)
         pred = [self._train_data[np.argmin(np.sum(np.exp(-row * pm_one_train_data), axis = 1))] for row in pred_S]
@@ -447,18 +431,6 @@ class SubsetMapping(problem_transformation_methods_template):
         return pred
 
 def generate_prior_knowledge(ground_truth, n_open_labels, same=False, seed = None):
-    """
-    ground_truth:
-        真のラベルのndarray形式のデータ
-    n_open_labels:
-        １インスタンスあたりの既知とするラベルの数
-    same:
-        True なら同じラベルの情報を与えることとする
-    seed:
-        乱数のシード値
-    """
-
-    # n_open_labelsのチェック
     if not isinstance(n_open_labels, int):
         if (not n_open_labels.isdigit()):
             raise ValueError("n_open_labels must be integer number.")
@@ -467,11 +439,9 @@ def generate_prior_knowledge(ground_truth, n_open_labels, same=False, seed = Non
 
     n_candidate_labels = ground_truth.shape[1]
 
-    # 既知とするラベルの数が1個以上、候補ラベル数以下であることを確認
     if n_open_labels <= 0 or n_candidate_labels <= n_open_labels:
         raise ValueError("Now, n_open_labels is {0}.\nn_open_labels must satisfy 0 < {0} < {1}".format(n_open_labels, n_candidate_labels))
 
-    # seed値があれば、それを設定する
     if seed is not None:
         random.seed(seed)
 

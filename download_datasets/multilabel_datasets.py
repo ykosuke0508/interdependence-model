@@ -323,19 +323,3 @@ def load_medical(data_home_dir="./data_home/", return_features_labels=False, del
         return features, labels
     else:
         return multilabeled_data(dataset_name, features, labels, feature_names, label_names)
-
-def main():
-    # test code
-    data = load_medical()
-    print(data.label_names)
-    print(data.feature_names)
-    print(data.features)
-    print(data.labels)
-    print(data.features.shape)
-    print(data.labels.shape)
-    print(data.n_samples)
-    print(data.n_labels)
-    print(data.n_features)
-
-if __name__ == '__main__':
-    main()
